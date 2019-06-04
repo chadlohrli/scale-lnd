@@ -21,7 +21,7 @@ def test():
 @app.route('/getinfo', methods=['GET','POST'])
 def getinfo():
 
-	getinfo_url = base_url + '/getinfo'
+	getinfo_url = base_url + 'getinfo'
 
 	r = requests.get(getinfo_url, headers=headers, verify=cert_path)
 	print(r.json())
@@ -52,7 +52,8 @@ def connect():
 
 	pubkey = request.args.get('pubkey')
 	host = request.args.get('host')
-
+	print(pubkey)
+	print(host)
 	if(not pubkey or not host):
 		return "Incorrect Format"
 
@@ -67,10 +68,10 @@ def connect():
 	}
 
 	r = requests.post(connect_url, headers=headers, verify=cert_path, data=json.dumps(data))
-	print(r.json())
+	return(jsonify(r.json()))
 
 #example: https://127.0.0.1/channel?pubkey=abc&amt=800000&pushamt=200000
-@app.route('/channel', methods['GET'])
+@app.route('/channel', methods=['GET'])
 def channel():
 
 	pubkey = request.args.get('pubkey')
@@ -85,7 +86,7 @@ def channel():
 	if(pushamt):
 		data = {
 			'node_pubkey_string': pubkey,
-			'local_funding_amount': amt
+			'local_funding_amount': amt,
 			'push_sat': pushamt
 		}
 	else:
@@ -96,35 +97,25 @@ def channel():
 
 
 	r = requests.post(channel_url, headers=headers, verify=cert_path, data=json.dumps(data))
-	print(r.json)
+	return(jsonify(r.json()))
 
-#example: https://127.0.0.1/invoices?amt=10000
+#example: https://127.0.0.1/invoices?payreq=abc
 @app.route('/sendpayment')
 def sendPayment():
 
-	amt = request.args.get('amt')
+	pay_req = request.args.get('payreq')
 
-	if(not amt):
+	if(not pay_req):
 		return "Incorrect Format"
 
-	invoice_url = base_url + 'invoices'
-
-	data = {
-		'value': amt
-	}
-
-	r = requests.post(url, verify=cert_path, data=json.dumps(data))
-	print(r.json())
-
-	pay_req = r.json()['payment_request']
 	tx_url = base_url + 'channels/transactions'
 
 	data = {
 		'payment_request': pay_req
 	}
 
-	r = requests.post(url, verify=cert_path, data=json.dumps(data))
-	print(r.json())
+	r = requests.post(tx_url, headers=headers, verify=cert_path, data=json.dumps(data))
+	return(jsonify(r.json()))
 
 
 def initLnd():
