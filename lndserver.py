@@ -68,11 +68,11 @@ def connect():
 	}
 
 	r = requests.post(connect_url, headers=headers, verify=cert_path, data=json.dumps(data))
-	return(jsonify(r.json()))
+	return jsonify(r.json())
 
 #example: https://127.0.0.1/channel?pubkey=abc&amt=800000&pushamt=200000
-@app.route('/channel', methods=['GET'])
-def channel():
+@app.route('/openchannel', methods=['GET'])
+def openchannel():
 
 	pubkey = request.args.get('pubkey')
 	amt	= request.args.get('amt')
@@ -92,14 +92,71 @@ def channel():
 	else:
 		data = {
 			'node_pubkey_string': pubkey,
-			'local_funding_amount': amt
+			'loca:l_funding_amount': amt
 		}
 
-
 	r = requests.post(channel_url, headers=headers, verify=cert_path, data=json.dumps(data))
-	return(jsonify(r.json()))
+	return jsonify(r.json())
 
-#example: https://127.0.0.1/invoices?payreq=abc
+#example: https://127.0.0.1/closechannel?pubkey=abc
+@app.route('/closechannel', methods=['GET'])
+def closechannel():
+	
+	pubkey = request.args.get('pubkey')
+	
+	if(not pubkey):
+		return "Incorrect Format"
+
+	channel_url = base_url + 'channels'
+
+	r = requests.get(channel_url, headers=headers, verify=cert_path)
+	
+	channels = r.json()['channels']
+	ftx = ''
+	idx = ''
+
+	for channel in channels:
+		if pubkey == channel['remote_pubkey']:
+			cp = channel['channel_point'].split(':')
+			ftx = cp[0]
+			idx = cp[1]			
+	
+	d_channel_url = channel_url + '/' + ftx + '/' + idx
+	r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
+	
+	#note we need to mine the close channel tx
+	for raw_response in r.iter_lines():
+		json_response = json.loads(raw_response)
+		print(json_response)
+
+	return jsonify(json_response)
+
+#example: https://127.0.0.1/invoice?amt=1000&memo=hi
+@app.route('/invoice', methods=['GET'])
+def route():
+
+	amt = request.args.get('amt')
+	memo = request.args.get('memo')
+	
+	if(not amt):
+		return "Incorrect Format"
+
+	invoice_url = base_url + 'invoices'
+	
+	if(memo):
+		data = {
+			'memo':memo,
+			'value':amt
+		}
+	else:
+		data = {
+			'value':amt
+		}
+
+	r = requests.post(url, verify=cert_path, data=json.dumps(data))
+	return jsonify(r.json())	
+
+#example: https://127.0.0.1/sendpayment?payreq=abc
 @app.route('/sendpayment')
 def sendPayment():
 
@@ -107,7 +164,9 @@ def sendPayment():
 
 	if(not pay_req):
 		return "Incorrect Format"
-
+	
+	#TODO: decode payment req and verify w/ user before payment
+ 
 	tx_url = base_url + 'channels/transactions'
 
 	data = {
@@ -115,9 +174,10 @@ def sendPayment():
 	}
 
 	r = requests.post(tx_url, headers=headers, verify=cert_path, data=json.dumps(data))
-	return(jsonify(r.json()))
+	return jsonify(r.json())
 
 
+#Helper Functions
 def initLnd():
 	
 	#deprecated - now using systemd to spin up lnd
