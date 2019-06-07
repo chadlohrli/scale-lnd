@@ -24,10 +24,27 @@ def getinfo():
 	getinfo_url = base_url + 'getinfo'
 
 	r = requests.get(getinfo_url, headers=headers, verify=cert_path)
-	print(r.json())
      	
 	return jsonify(r.json())
 
+@app.route('/walletbalance', methods=['GET'])
+def walletbalance():
+
+	wbalance_url = base_url + 'balance/blockchain'
+	
+	r = requests.get(wbalance_url, headers=headers, verify=cert_path)
+
+	return jsonify(r.json())
+
+@app.route('/channelbalance', methods=['GET'])
+def channelbalance():
+
+	cbalance_url = base_url + 'balance/channels'
+	
+	r = requests.get(cbalance_url, headers=headers, verify=cert_path)
+
+	return jsonify(r.json())
+	
 @app.route('/create', methods=['GET','POST'])
 def create():
 
@@ -42,8 +59,6 @@ def create():
 	ret_dict['seed'] = seed
 	ret_dict['address'] = address
 
-	print(ret_dict)
-
 	return jsonify(ret_dict)
 
 # example: http://127.0.0.1/connect?pubkey=abc&host=127.0.0.1:8001
@@ -52,8 +67,7 @@ def connect():
 
 	pubkey = request.args.get('pubkey')
 	host = request.args.get('host')
-	print(pubkey)
-	print(host)
+	
 	if(not pubkey or not host):
 		return "Incorrect Format"
 
@@ -92,7 +106,7 @@ def openchannel():
 	else:
 		data = {
 			'node_pubkey_string': pubkey,
-			'loca:l_funding_amount': amt
+			'local_funding_amount': amt
 		}
 
 	r = requests.post(channel_url, headers=headers, verify=cert_path, data=json.dumps(data))
@@ -107,33 +121,56 @@ def closechannel():
 	if(not pubkey):
 		return "Incorrect Format"
 
+	channel = getchannel(pubkey)
+	
+	if(channel):
+		cp = channel['channel_point'].split(':')
+		d_channel_url = channel_url + '/' + cp[0] + '/' + c[1]
+		r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
+	
+		#note we need to mine the close channel tx
+		#TODO generate 6 blocks on simnet
+		for raw_response in r.iter_lines():
+			json_response = json.loads(raw_response)
+			print(json_response)
+
+		return jsonify(json_response)
+	else:
+		return "No Channel to Close"
+
+#example: https://127.0.0.1/checkchannel?pubkey=abc
+@app.route('/checkchannel', methods=['GET'])
+def checkchannel():
+
+	pubkey = request.args.get('pubkey')
+	
+	if(not pubkey):
+		return "Incorrect Format"
+
+	return jsonify(getchannel(pubkey))
+
+def getchannel(pubkey):
+
+	channels = listchannels()['channels']
+	
+	for channel in channels:
+		if pubkey == channel['remote_pubkey']:
+			return channel
+
+	return {}
+	
+@app.route('/listchannels', methods=['GET'])
+def listchannels():
+
 	channel_url = base_url + 'channels'
 
 	r = requests.get(channel_url, headers=headers, verify=cert_path)
 	
-	channels = r.json()['channels']
-	ftx = ''
-	idx = ''
-
-	for channel in channels:
-		if pubkey == channel['remote_pubkey']:
-			cp = channel['channel_point'].split(':')
-			ftx = cp[0]
-			idx = cp[1]			
-	
-	d_channel_url = channel_url + '/' + ftx + '/' + idx
-	r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
-	
-	#note we need to mine the close channel tx
-	for raw_response in r.iter_lines():
-		json_response = json.loads(raw_response)
-		print(json_response)
-
-	return jsonify(json_response)
+	return r.json()
 
 #example: https://127.0.0.1/invoice?amt=1000&memo=hi
 @app.route('/invoice', methods=['GET'])
-def route():
+def invoice():
 
 	amt = request.args.get('amt')
 	memo = request.args.get('memo')
@@ -154,7 +191,17 @@ def route():
 		}
 
 	r = requests.post(url, verify=cert_path, data=json.dumps(data))
+	
 	return jsonify(r.json())	
+
+@app.route('/decodepayreq/<pay_req>', methods=['GET'])
+def decodepayreq(pay_req):
+	
+	decode_url = base_url + 'payreq/' + pay_req
+
+	r = requests.get(url, headers=headers, verify=cert_path
+
+	return jsonify(r.json())
 
 #example: https://127.0.0.1/sendpayment?payreq=abc
 @app.route('/sendpayment')
@@ -174,8 +221,8 @@ def sendPayment():
 	}
 
 	r = requests.post(tx_url, headers=headers, verify=cert_path, data=json.dumps(data))
+	
 	return jsonify(r.json())
-
 
 #Helper Functions
 def initLnd():
