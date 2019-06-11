@@ -12,7 +12,7 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 db = firestore.Client()
 aws_template_id = 'lt-0e8c7bf29b5bcc011' #lnd-create template
-lnd_base_url = '/lnd/v1'
+lnd_base_url = '/lnd/v1/'
 
 #create new lnd node
 @app.route(lnd_base_url + 'create/<uuid>', methods=['GET'])
@@ -84,7 +84,7 @@ def create(uuid):
 def getinfo(uuid):
 
 	url = getlndip(uuid) + 'getinfo'
-	r = requests.get(url))
+	r = requests.get(url)
 
 	return jsonify(r.json())
 
@@ -96,7 +96,30 @@ def walletbalance(uuid):
 
 	return jsonify(r.json())
 
-# examples http://127.0.0.1/lnd/v1/pay?uuid=123&pubkey=abc&host=ip:port&amt=1000&payreq=lnabc&memo=hi
+# example http://127.0.0.1/lnd/v1/invoice?uuid=123&amt=10000&memo=hi
+@app.route(lnd_base_url + 'invoice', methods=['GET'])
+def invoice():
+
+	uuid = request.args.get('uuid')
+	amt = request.args.get('amt')
+	memo = request.args.get('memo')
+
+	if(not uuid or not amt):
+		return jsonify({"code":"3","error":"Incorrect URL Format"})
+
+	url = getlndip(uuid) + 'invoice?amt=' + amt
+
+	if(memo):
+		r = requests.get(url + '&memo=' + memo)
+	else:
+		r = requests.get(url)
+
+	if("payment_request" in r.json()):
+		return jsonify(r.json())
+	else:
+		return jsonify({"code":"3","error":"Could not create invoice"})
+
+# examples http://127.0.0.1/lnd/v1/pay?uuid=123&pubkey=abc&host=ip:port&amt=1000&payreq=lnabc
 @app.route(lnd_base_url + 'pay', methods=['GET'])
 def pay():
 	
@@ -105,67 +128,73 @@ def pay():
 	host = request.args.get('host')
 	chan_amt = request.args.get('amt')
 	payreq = request.args.get('payreq')
-	memo = request.args.get('memo')
 
-	if(uuid or not pubkey or not host or not chan_amt or not payreq):
-		return "Incorrect Format"
+	if(not uuid or not pubkey or not host or not chan_amt or not payreq):
+		return jsonify({"code":"3","error":"Incorrect URL Format"})
 
 	base_url = getlndip(uuid) 
 
 	#first we need to check funds
-	wallet_balance = walletbalance(uuid)
+	wallet_balance = walletbalance(uuid).get_json() #note this returns a response
 	total_balance = wallet_balance['total_balance']	
 
 	#get payment amount
 	payreq_url = base_url + 'decodepayreq/' + payreq
 	r = requests.get(payreq_url)
-	pay_amt = r.json()['num_satoshis']
-	
+	if('num_satoshis' in r.json()):
+		pay_amt = r.json()['num_satoshis']
+	else:
+		return(jsonify(r.json()))
+
 	#first we need to check if they are already connected
-	connect_url = base_url + 'connect?pubkey=' + pubkey + '&' + host
+	connect_url = base_url + 'connect?pubkey=' + pubkey + '&host=' + host
 	r = requests.get(connect_url)
-	
+
 	if(len(r.json()) !=0):
 		err = r.json()['error'].split(':')[0]
 		if(err != 'already connected to peer'):
-			return 'Incorrect Public Key or Host'	
+			return jsonify({"code":"3","error":"Incorrect Public Key or Host"})
 
 	#second we need to check if there is already a channel open
-	checkchannel_url = base_url + 'checkchannel')
+	checkchannel_url = base_url + 'checkchannel?pubkey=' + pubkey
 	r = requests.get(checkchannel_url)
-
 	channel = r.json()
 
 	if(len(channel) == 0):
 
-		if(walletbalance < chan_amt):
-			return "Not enough wallets funds"
-		elif(math.floor(int(chan_amt)*0.8) < int(pay_amt)):
-			return "Not enough channel funds"
+		chan_amt = int(chan_amt) #channel funding 
+		total_balance = int(total_balance) #total wallet balance
+		pay_amt = int(pay_amt) #payment amount
+
+		#return("chan amt:" + str(int(math.floor(chan_amt*0.8))) + " " + "pay_amt:" + str(pay_amt))
+
+		if(total_balance < chan_amt):
+			return jsonify({"code":"3","error":"Not enough wallets funds"})
+		elif(int(math.floor(chan_amt*0.9)) < pay_amt):
+			return jsonify({"code":"3","error":"Not enough channel funds"})
 	
-		push_amt = math.floor(int(chan_amt)*0.2)
-		chan_amt = int(chan_amt) - push_amt
+		push_amt = int(math.floor(chan_amt*0.1))
+		chan_amt = chan_amt - push_amt
+
+		#return("chan amt:" + str(chan_amt) + " " + "push_amt:" + str(push_amt))
 		
-		openchannel_url = base_url + 'openchannel?pubkey=' + pubkey + '&' + str(amt) + '&' + str(pushamt)
+		openchannel_url = base_url + 'openchannel?pubkey=' + pubkey + '&amt=' + str(chan_amt) + '&pushamt=' + str(push_amt)
 		r = requests.get(openchannel_url)
 		res = r.json()
-		if(!res['funding_txid_str']):
-			return 'Issue Creating Channel'
+		if('funding_txid_str' not in r.json()):
+			return r.json()
 	
 	else:
+		chan_balance = int(channel['local_balance'])
 
-		if(channel['local_balance'] < pay_amt):
-			return "Not enough channel funds"
+		if(chan_balance < int(pay_amt)):
+			return jsonify({"code":"3","error":"Not enough channel funds"})
 	
-
 	#last we are ready for the payment
 	pay_url = base_url + 'sendpayment?payreq=' + payreq
 	r = requests.get(pay_url)
 
-	if(r.json()['payment_hash]'):
-		return "Success"
-	else:
-		return "Could not complete transaction"
+	return(jsonify(r.json()))
 
 
 @app.route(lnd_base_url + 'channelbalance/<uuid>', methods=['GET'])
@@ -220,8 +249,5 @@ def testlnd():
 	return str(r.json())
 
 
-
 if __name__ == '__main__':
 	app.run(port='5001')
-
-
