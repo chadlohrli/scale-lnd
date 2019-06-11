@@ -92,7 +92,7 @@ def openchannel():
 	amt	= request.args.get('amt')
 	pushamt = request.args.get('pushamt')
 
-	if(not pubkey and not amt):
+	if(not pubkey or not amt):
 		return "Incorrect Format"
 
 	channel_url = base_url + 'channels'
@@ -121,11 +121,11 @@ def closechannel():
 	if(not pubkey):
 		return "Incorrect Format"
 
+	channel_url = base_url + 'channels'
 	channel = getchannel(pubkey)
-	
-	if(channel):
+	if(len(channel) != 0):
 		cp = channel['channel_point'].split(':')
-		d_channel_url = channel_url + '/' + cp[0] + '/' + c[1]
+		d_channel_url = channel_url + '/' + cp[0] + '/' + cp[1]
 		r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
 	
 		#note we need to mine the close channel tx
@@ -151,13 +151,14 @@ def checkchannel():
 
 def getchannel(pubkey):
 
-	channels = listchannels()['channels']
-	
-	for channel in channels:
-		if pubkey == channel['remote_pubkey']:
-			return channel
-
-	return {}
+	channels = listchannels()
+	channels = json.loads(channels.data)['channels']
+	if(len(channels) == 0):
+		return channels
+	else:
+		for channel in channels:
+			if pubkey == channel['remote_pubkey']:
+				return channel
 	
 @app.route('/listchannels', methods=['GET'])
 def listchannels():
@@ -166,7 +167,7 @@ def listchannels():
 
 	r = requests.get(channel_url, headers=headers, verify=cert_path)
 	
-	return r.json()
+	return jsonify(r.json())
 
 #example: https://127.0.0.1/invoice?amt=1000&memo=hi
 @app.route('/invoice', methods=['GET'])
@@ -190,7 +191,7 @@ def invoice():
 			'value':amt
 		}
 
-	r = requests.post(url, verify=cert_path, data=json.dumps(data))
+	r = requests.post(invoice_url, headers=headers, verify=cert_path, data=json.dumps(data))
 	
 	return jsonify(r.json())	
 
@@ -199,7 +200,7 @@ def decodepayreq(pay_req):
 	
 	decode_url = base_url + 'payreq/' + pay_req
 
-	r = requests.get(url, headers=headers, verify=cert_path
+	r = requests.get(decode_url, headers=headers, verify=cert_path)
 
 	return jsonify(r.json())
 
@@ -283,3 +284,7 @@ def generate_seed():
 
 if __name__ == '__main__':
 	app.run(port='5002')
+
+
+
+
