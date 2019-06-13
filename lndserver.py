@@ -136,7 +136,7 @@ def closechannel():
 
 		return jsonify(json_response)
 	else:
-		return "No Channel to Close"
+		return jsonify({"res":"No Channel to Close"})
 
 #example: https://127.0.0.1/checkchannel?pubkey=abc
 @app.route('/checkchannel', methods=['GET'])
@@ -153,13 +153,15 @@ def getchannel(pubkey):
 
 	channels = listchannels()
 	channels = json.loads(channels.data)['channels']
+	print(channels)
 	if(len(channels) == 0):
 		return channels
 	else:
 		for channel in channels:
 			if pubkey == channel['remote_pubkey']:
 				return channel
-	
+
+	return {}	
 @app.route('/listchannels', methods=['GET'])
 def listchannels():
 
