@@ -31,10 +31,8 @@ def create(uuid):
 	}]
 	reservations = client.describe_instances(Filters=ec2_filters)
 
-	return(jsonify(json.loads(getinfo(uuid).data)['identity_pubkey']))
-
 	if (len(reservations['Reservations']) != 0):
-		return ("You already have a lnd node running!")
+		return jsonify({'code': 3, 'error': 'You already have a lnd node running!', 'res': 'master lnd node create'})
 
 	#1) spin up aws instance from lnd template image
 	instance = client.run_instances(
@@ -98,23 +96,51 @@ def create(uuid):
 def getinfo(uuid):
 
 	url = getlndip(uuid) + 'getinfo'
-	r = requests.get(url)
 
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node getinfo'})
+	
 	return jsonify(r.json())
 
 @app.route(lnd_base_url + 'walletbalance/<uuid>', methods=['GET'])
 def walletbalance(uuid):
 	
 	url = getlndip(uuid) + 'walletbalance'
-	r = requests.get(url)
 
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node walletbalance'})
+
+	return jsonify(r.json())
+
+@app.route(lnd_base_url + 'channelbalance/<uuid>', methods=['GET'])
+def channelbalance(uuid):
+	
+	url = getlndip(uuid) + 'channelbalance'
+
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node channelbalance'})
+	
 	return jsonify(r.json())
 
 @app.route(lnd_base_url + 'listchannels/<uuid>', methods=['GET'])
 def listchannels(uuid):
 
 	url = getlndip(uuid) + 'listchannels'
-	r = requests.get(url)
+
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node walletbalance'})
 
 	return jsonify(r.json())
 
@@ -126,10 +152,15 @@ def closechannel():
 	uuid = request.args.get('uuid')
 
 	if(not uuid or not pubkey):
-		return jsonify({"code":"3","error":"Incorrect URL Format"})
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node closechannel'})
 
 	url = getlndip(uuid) + 'closechannel?pubkey=' + pubkey
-	r = requests.get(url)
+
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node closechannel'})
 
 	return jsonify(r.json())
 
@@ -142,20 +173,20 @@ def invoice():
 	memo = request.args.get('memo')
 
 	if(not uuid or not amt):
-		return jsonify({"code":"3","error":"Incorrect URL Format"})
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node invoice'})
 
 	url = getlndip(uuid) + 'invoice?amt=' + amt
 
 	if(memo):
-		r = requests.get(url + '&memo=' + memo)
-	else:
-		r = requests.get(url)
+		url = url + '&memo=' + memo
 
-	print(r.json())
-	if("payment_request" in r.json()):
-		return jsonify(r.json())
-	else:
-		return jsonify({"code":"3","error":"Could not create invoice"})
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node invoice'})
+
+	return(jsonify(r.json()))
 
 # examples http://127.0.0.1/lnd/v1/pay?uuid=123&pubkey=abc&host=ip:port&amt=1000&payreq=lnabc
 @app.route(lnd_base_url + 'pay', methods=['GET'])
@@ -168,17 +199,27 @@ def pay():
 	payreq = request.args.get('payreq')
 
 	if(not uuid or not pubkey or not host or not chan_amt or not payreq):
-		return jsonify({"code":"3","error":"Incorrect URL Format"})
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node pay'})
 
 	base_url = getlndip(uuid) 
 
 	#first we need to check funds
 	wallet_balance = walletbalance(uuid).get_json() #note this returns a response
+	
+	if("error" in wallet_balance):
+		return jsonify(wallet_balance)
+
 	total_balance = wallet_balance['total_balance']	
 
 	#get payment amount
 	payreq_url = base_url + 'decodepayreq/' + payreq
-	r = requests.get(payreq_url)
+	
+	try:
+		r = requests.get(payreq_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node pay (decodepayreq)'})
+	
 	if('num_satoshis' in r.json()):
 		pay_amt = r.json()['num_satoshis']
 	else:
@@ -186,16 +227,27 @@ def pay():
 
 	#first we need to check if they are already connected
 	connect_url = base_url + 'connect?pubkey=' + pubkey + '&host=' + host
-	r = requests.get(connect_url)
+
+	try:
+		r = requests.get(connect_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node pay (connect)'})
 
 	if(len(r.json()) !=0):
 		err = r.json()['error'].split(':')[0]
 		if(err != 'already connected to peer'):
-			return jsonify({"code":"3","error":"Incorrect Public Key or Host"})
+			return jsonify(r.json())
 
 	#second we need to check if there is already a channel open
 	checkchannel_url = base_url + 'checkchannel?pubkey=' + pubkey
-	r = requests.get(checkchannel_url)
+
+	try:
+		r = requests.get(checkchannel_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node pay (checkchannel)'})
+	
 	channel = r.json()
 
 	if(len(channel) == 0):
@@ -217,10 +269,15 @@ def pay():
 		#return("chan amt:" + str(chan_amt) + " " + "push_amt:" + str(push_amt))
 		
 		openchannel_url = base_url + 'openchannel?pubkey=' + pubkey + '&amt=' + str(chan_amt) + '&pushamt=' + str(push_amt)
-		r = requests.get(openchannel_url)
-		res = r.json()
-		if('funding_txid_str' not in r.json()):
-			return r.json()
+
+		try:
+			r = requests.get(openchannel_url)
+			r.raise_for_status()
+		except requests.exceptions.RequestException as err:
+			return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node pay (openchannel)'})
+		
+		if('funding_txid_bytes' not in r.json()):
+			return jsonify(r.json())
 	
 	else:
 		chan_balance = int(channel['local_balance'])
@@ -230,18 +287,20 @@ def pay():
 	
 	#last we are ready for the payment
 	pay_url = base_url + 'sendpayment?payreq=' + payreq
-	r = requests.get(pay_url)
+	
+	try:
+		r = requests.get(pay_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node pay (sendpayment)'})
 
 	return(jsonify(r.json()))
 
 
-@app.route(lnd_base_url + 'channelbalance/<uuid>', methods=['GET'])
-def channelbalance(uuid):
-	
-	url = getlndip(uuid) + 'channelbalance'
-	r = requests.get(url) 
-	
-	return jsonify(r.json())
+#@app.route(lnd_base_url + 'genblocks/<num>', methods=['GET'])
+def generateBlocks(num):
+	cmd = '/home/ec2-user/gocode/bin/btcctl --simnet --rpcuser=kek --rpcpass=kek generate ' + str(num)
+	os.system(cmd)
 
 def getlndip(uuid):
 
