@@ -21,9 +21,6 @@ def create(uuid):
 	#instantiante aws client
 	client = boto3.client('ec2')
 
-	#assume user is logged into fabrx to grab UUID,
-	#in this case we generate a UUID for testing
-
 	#node_id = 'lnd-' + str(uuid.uuid1())
 	node_id = 'lnd-' + str(uuid);
 
@@ -33,6 +30,8 @@ def create(uuid):
 		'Values': [node_id]
 	}]
 	reservations = client.describe_instances(Filters=ec2_filters)
+
+	return(jsonify(json.loads(getinfo(uuid).data)['identity_pubkey']))
 
 	if (len(reservations['Reservations']) != 0):
 		return ("You already have a lnd node running!")
@@ -66,7 +65,10 @@ def create(uuid):
 	lnd_server = 'http://' + instance_ref.public_dns_name + ':5000/create'
 	r = requests.get(lnd_server)
 
-	#3) save data to firebase
+	#3) grab public key
+	pubkey = json.loads(getinfo(uuid).data)['identity_pubkey']
+
+	#4) save data to firebase
 	doc_ref = db.collection(u'lnd').document(node_id)
 	doc_ref.set({
 		u'instance': {
@@ -74,11 +76,23 @@ def create(uuid):
 			u'privateIP' : unicode(instance_private_ip),
 			u'createTime' : unicode(instance_time),
 		},
-		u'wallet' : r.json(),
+		u'lndnode':{
+			u'host' : unicode(instance_private_ip),
+			u'port' : unicode("10011"),
+			u'pubkey': unicode(pubkey),
+			u'wallet' : r.json(),
+		},
 		u'timestamp' : firestore.SERVER_TIMESTAMP
-		})
+	})
 
-	return "Success!"
+	#4) send intial coins
+	address = r.json()['address']
+	lncmd = 'lncli --rpcserver=localhost:10001 --macaroonpath=data/chain/bitcoin/simnet/admin.macaroon'
+	snd = ' sendcoins --addr=' + address + ' ' + '--amt=100000000'
+	cmd = lncmd + snd
+	os.system(cmd)
+
+	return jsonify({"code":"4","res":"Success"})
 
 @app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
 def getinfo(uuid):
@@ -92,6 +106,29 @@ def getinfo(uuid):
 def walletbalance(uuid):
 	
 	url = getlndip(uuid) + 'walletbalance'
+	r = requests.get(url)
+
+	return jsonify(r.json())
+
+@app.route(lnd_base_url + 'listchannels/<uuid>', methods=['GET'])
+def listchannels(uuid):
+
+	url = getlndip(uuid) + 'listchannels'
+	r = requests.get(url)
+
+	return jsonify(r.json())
+
+#example: https://127.0.0.1/closechannel?uuid=123&pubkey=abc
+@app.route(lnd_base_url + 'closechannel', methods=['GET'])
+def closechannel():
+
+	pubkey = request.args.get('pubkey')
+	uuid = request.args.get('uuid')
+
+	if(not uuid or not pubkey):
+		return jsonify({"code":"3","error":"Incorrect URL Format"})
+
+	url = getlndip(uuid) + 'closechannel?pubkey=' + pubkey
 	r = requests.get(url)
 
 	return jsonify(r.json())
@@ -114,6 +151,7 @@ def invoice():
 	else:
 		r = requests.get(url)
 
+	print(r.json())
 	if("payment_request" in r.json()):
 		return jsonify(r.json())
 	else:
