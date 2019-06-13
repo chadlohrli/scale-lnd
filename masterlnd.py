@@ -1,4 +1,4 @@
-import os
+subimport os
 import sys
 import time
 import json
@@ -61,10 +61,25 @@ def create(uuid):
 	#2) create wallet on lnd server
 	time.sleep(60)
 	lnd_server = 'http://' + instance_ref.public_dns_name + ':5000/create'
-	r = requests.get(lnd_server)
+
+	try;
+		r = requests.get(lnd_server)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node create (init'})		
+
+	wallet = r.json()
+	if("error" in wallet):
+		return jsonify(wallet)
 
 	#3) grab public key
-	pubkey = json.loads(getinfo(uuid).data)['identity_pubkey']
+	pubkey = json.loads(getinfo(uuid).data)
+	if("error" in pubkey):
+		return jsonify(pubkey)
+
+	pubkey = pubkey['identity_pubkey']
+
+	# *At this point we can assume no errors, so let's save to firebase*
 
 	#4) save data to firebase
 	doc_ref = db.collection(u'lnd').document(node_id)
@@ -90,7 +105,7 @@ def create(uuid):
 	cmd = lncmd + snd
 	os.system(cmd)
 
-	return jsonify({"code":"4","res":"Success"})
+	return jsonify({'code': 5, 'error': "Success", 'res': 'master lnd node create (finalize init'})
 
 @app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
 def getinfo(uuid):

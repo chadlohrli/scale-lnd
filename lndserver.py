@@ -110,12 +110,18 @@ def openchannel():
 			'local_funding_amount': amt
 		}
 
+	#sync wallet before opening channel
+	generateBlocks(1)
+
 	try:
 		r = requests.post(channel_url, headers=headers, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node openchannel'})	
 	
+	#mine channel transaction (6 blocks)
+	generateBlocks(6)
+
 	return jsonify(r.json())
 
 #example: https://127.0.0.1/closechannel?pubkey=abc
@@ -129,6 +135,7 @@ def closechannel():
 
 	channel_url = base_url + 'channels'
 	channel = getchannel(pubkey)
+
 	if(len(channel) != 0):
 		cp = channel['channel_point'].split(':')
 		d_channel_url = channel_url + '/' + cp[0] + '/' + cp[1]
@@ -163,10 +170,11 @@ def checkchannel():
 def getchannel(pubkey):
 
 	channels = listchannels()
-	channels = json.loads(channels.data)['channels']
+	channels = json.loads(channels.data)
 	if(len(channels) == 0):
 		return channels
 	else:
+		channels = channels['channels']
 		for channel in channels:
 			if pubkey == channel['remote_pubkey']:
 				return channel
@@ -238,7 +246,7 @@ def sendPayment():
 	if(not pay_req):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node sendpayment'})
 	
-	#TODO: decode payment req and verify w/ user before payment
+	#payment checking is being done on master node 
 	tx_url = base_url + 'channels/transactions'
 
 	data = {
@@ -251,18 +259,29 @@ def sendPayment():
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node sendpayment'})
 	
-	
+
 	return jsonify(r.json())
 
 @app.route('/create', methods=['GET','POST'])
 def create():
 
 	ret_dict = {}
-	pw, seed = initWallet()
+
+	wallet = initWallet()
+
+	if("error" in wallet):
+		return jsonify(wallet)
+
+	pw = wallet["pw"]
+	seed = wallet["seed"]
 
 	time.sleep(5)
 
 	address = initAddress()	
+	if("error" in address):
+		return jsonify(address)
+
+	address = address["address"]
 
 	ret_dict['password'] = pw
 	ret_dict['seed'] = seed
@@ -293,6 +312,9 @@ def initWallet():
 	wallet_url = base_url + 'initwallet'
 	pw = generate_pw()
 	seed = generate_seed()
+	if("error in seed"):
+		return seed
+	seed = seed["seed"]
 
 	data = {
 		'wallet_password': base64.b64encode(pw).decode(),
@@ -303,9 +325,9 @@ def initWallet():
 		r = requests.post(url, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
-		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node initwallet'})
+		return {'code': 4, 'error': str(err), 'res': 'lnd node initwallet'}
 
-	return pw,seed
+	return {"pw":pw, "seed":seed}
 
 def initAddress():
 	
@@ -316,12 +338,12 @@ def initAddress():
 		r = requests.get(address_url, headers=headers, verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
-		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node initaddress'})
+		return {'code': 4, 'error': str(err), 'res': 'lnd node initaddress'}
 	
 	if('address' in r.json()):
-		return r.json()['address']
+		return {"address": r.json()['address']}
 	else:
-		return jsonify({'code': 3, 'error': 'could not generate address', 'res': 'lnd node initaddress'})
+		return {'code': 3, 'error': 'could not generate address', 'res': 'lnd node initaddress'}
 
 def generate_pw():
 	
@@ -343,12 +365,12 @@ def generate_seed():
 		r = requests.get(seed_url,verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
-		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node initaddress'})
+		return {'code': 4, 'error': str(err), 'res': 'lnd node initaddress'}
   	
   	if('cipher_seed_mnemonic' in r.json()):
-		return r.json()['cipher_seed_mnemonic']
+		return {'seed': r.json()['cipher_seed_mnemonic']}
 	else:
-		return jsonify({'code': 3, 'error': 'could not generate address', 'res': 'lnd node initaddress'})
+		return {'code': 3, 'error': 'could not generate address', 'res': 'lnd node initaddress'}
 
 if __name__ == '__main__':
 	app.run(port='5002')
