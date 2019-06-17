@@ -140,7 +140,7 @@ def closechannel():
 		cp = channel['channel_point'].split(':')
 		d_channel_url = channel_url + '/' + cp[0] + '/' + cp[1]
 
-		try;
+		try:
 			r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
 			r.raise_for_status()
 		except requests.exceptions.RequestException as err:
@@ -186,7 +186,7 @@ def listchannels():
 
 	channel_url = base_url + 'channels'
 
-	try;
+	try:
 		r = requests.get(channel_url, headers=headers, verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -216,7 +216,7 @@ def invoice():
 			'value':amt
 		}
 
-	try;
+	try:
 		r = requests.post(invoice_url, headers=headers, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -229,7 +229,7 @@ def decodepayreq(pay_req):
 	
 	decode_url = base_url + 'payreq/' + pay_req
 
-	try;
+	try:
 		r = requests.get(decode_url, headers=headers, verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -253,7 +253,7 @@ def sendPayment():
 		'payment_request': pay_req
 	}
 
-	try;
+	try:
 		r = requests.post(tx_url, headers=headers, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -321,7 +321,7 @@ def initWallet():
 		'cipher_seed_mnemonic': seed	
 	}
 
-	try;
+	try:
 		r = requests.post(url, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -334,7 +334,7 @@ def initAddress():
 	#generate bitcoin address
 	address_url = base_url + 'newaddress'
 
-	try;
+	try:
 		r = requests.get(address_url, headers=headers, verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -361,7 +361,7 @@ def generate_seed():
 	#generate mnemonic seed for wallet
 	seed_url = base_url + 'genseed'
   	
-  	try;
+  	try:
 		r = requests.get(seed_url,verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
