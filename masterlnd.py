@@ -1,4 +1,4 @@
-subimport os
+import os
 import sys
 import time
 import json
@@ -6,13 +6,21 @@ import boto3
 import requests
 import uuid
 import math
-from google.cloud import firestore
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-db = firestore.Client()
+cred = credentials.Certificate("./firebase_auth.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 aws_template_id = 'lt-0e8c7bf29b5bcc011' #lnd-create template
 lnd_base_url = '/lnd/v1/'
+
+@app.route('/test')
+def test():
+	return "hello world"
 
 #create new lnd node
 @app.route(lnd_base_url + 'create/<uuid>', methods=['GET'])
@@ -62,7 +70,7 @@ def create(uuid):
 	time.sleep(60)
 	lnd_server = 'http://' + instance_ref.public_dns_name + ':5000/create'
 
-	try;
+	try:
 		r = requests.get(lnd_server)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
@@ -73,12 +81,19 @@ def create(uuid):
 		return jsonify(wallet)
 
 	#3) grab public key
-	pubkey = json.loads(getinfo(uuid).data)
+	get_info_url = 'http://' + instance_ref.public_dns_name + ':5000/getinfo'
+	try:
+		r = requests.get(get_info_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node create (getinfo)'})
+	
+	pubkey = r.json()
 	if("error" in pubkey):
 		return jsonify(pubkey)
 
 	pubkey = pubkey['identity_pubkey']
-
+	
 	# *At this point we can assume no errors, so let's save to firebase*
 
 	#4) save data to firebase
@@ -93,19 +108,19 @@ def create(uuid):
 			u'host' : unicode(instance_private_ip),
 			u'port' : unicode("10011"),
 			u'pubkey': unicode(pubkey),
-			u'wallet' : r.json(),
+			u'wallet' : wallet,
 		},
 		u'timestamp' : firestore.SERVER_TIMESTAMP
 	})
 
 	#4) send intial coins
-	address = r.json()['address']
-	lncmd = 'lncli --rpcserver=localhost:10001 --macaroonpath=data/chain/bitcoin/simnet/admin.macaroon'
+	address = wallet['address']
+	lncmd = '/home/ec2-user/gocode/bin/lncli --rpcserver=localhost:10001 --macaroonpath=data/chain/bitcoin/simnet/admin.macaroon'
 	snd = ' sendcoins --addr=' + address + ' ' + '--amt=100000000'
 	cmd = lncmd + snd
 	os.system(cmd)
 
-	return jsonify({'code': 5, 'error': "Success", 'res': 'master lnd node create (finalize init'})
+	return jsonify({'code': 5, 'error': "Success", 'res': 'master lnd node create (finalize init)'})
 
 @app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
 def getinfo(uuid):
