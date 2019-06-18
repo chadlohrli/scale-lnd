@@ -194,6 +194,19 @@ def closechannel():
 
 	return jsonify(r.json())
 
+@app.route(lnd_base_url + 'listpeers/<uuid>', methods=['GET'])
+def listpeers(uuid):
+
+	url = getlnd(uuid) + 'peers'
+
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node listpeers'})
+
+	return jsonify(r.json())
+
 # example http://127.0.0.1/lnd/v1/invoice?uuid=123&amt=10000&memo=hi
 @app.route(lnd_base_url + 'invoice', methods=['GET'])
 def invoice():

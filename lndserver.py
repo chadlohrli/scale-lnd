@@ -57,6 +57,19 @@ def channelbalance():
 
 	return jsonify(r.json())	
 
+@app.route('/peers', methods=['GET'])
+def peers():
+
+	peers_url = base_url + 'peers'
+
+	try:
+		r = requests.get(cbalance_url, headers=headers, verify=cert_path)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node peers'})
+
+	return jsonify(r.json())
+	
 # example: http://127.0.0.1/connect?pubkey=abc&host=127.0.0.1:8001
 @app.route('/connect', methods=['GET'])
 def connect():
