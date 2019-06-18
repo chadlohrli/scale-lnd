@@ -373,7 +373,7 @@ def pay():
 	
 	#last we are ready for the payment
 	pay_url = base_url + 'sendpayment?payreq=' + payreq
-	
+	time.sleep(1) #give time to mine open channel tx
 	try:
 		r = requests.get(pay_url)
 		r.raise_for_status()

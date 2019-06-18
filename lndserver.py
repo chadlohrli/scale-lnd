@@ -110,12 +110,19 @@ def connect():
 		'perm': False
 	}
 
+	# 500 error gets thrown if peer already exists which create problems for master node
+	# small risk here of network error since we are on same host
+	r = requests.post(connect_url, headers=headers, verify=cert_path, data=json.dumps(data))
+
+	'''
 	try:
 		r = requests.post(connect_url, headers=headers, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node connect'})
 
+	'''
+	
 	return jsonify(r.json())
 
 #example: https://127.0.0.1/channel?pubkey=abc&amt=800000&pushamt=200000
