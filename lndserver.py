@@ -63,13 +63,33 @@ def peers():
 	peers_url = base_url + 'peers'
 
 	try:
-		r = requests.get(cbalance_url, headers=headers, verify=cert_path)
+		r = requests.get(peers_url, headers=headers, verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node peers'})
 
 	return jsonify(r.json())
-	
+
+
+# example: http://127.0.0.1/deletepeer?abc
+@app.route('/deletepeer', methods=['GET'])
+def deletepeer():
+
+	pubkey = request.args.get('pubkey')
+
+	if(not pubkey):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node deletepeer'})
+
+	peers_url = base_url + 'peers/' + pubkey
+
+	try:
+		r = requests.delete(peers_url, headers=headers, verify=cert_path)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node deletepeer'})
+
+	return jsonify(r.json())
+
 # example: http://127.0.0.1/connect?pubkey=abc&host=127.0.0.1:8001
 @app.route('/connect', methods=['GET'])
 def connect():

@@ -207,6 +207,27 @@ def listpeers(uuid):
 
 	return jsonify(r.json())
 
+#example: https://127.0.0.1/closechannel?uuid=123&pubkey=abc
+@app.route(lnd_base_url + 'deletepeer', methods=['GET'])
+def deletepeer():
+
+	uuid = requests.args.get('uuid')
+	pubkey = requests.args.get('pubkey') 
+
+	if(not uuid or not pubkey):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node deletepeer'})
+
+	url = getlnd(uuid) + 'deletepeer?pubkey=' + pubkey
+
+	try:
+		r = requests.get(url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node deletepeers'})
+
+	return jsonify(r.json())
+
+
 # example http://127.0.0.1/lnd/v1/invoice?uuid=123&amt=10000&memo=hi
 @app.route(lnd_base_url + 'invoice', methods=['GET'])
 def invoice():
