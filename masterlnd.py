@@ -120,7 +120,7 @@ def create(uuid):
 	cmd = lncmd + snd
 	os.system(cmd)
 
-	return jsonify({'code': 5, 'error': "Success", 'res': 'master lnd node create (finalize init)'})
+	return jsonify({'code': 5, 'success': True, 'res': 'master lnd node create (finalize init)'})
 
 @app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
 def getinfo(uuid):
@@ -197,7 +197,7 @@ def closechannel():
 @app.route(lnd_base_url + 'listpeers/<uuid>', methods=['GET'])
 def listpeers(uuid):
 
-	url = getlnd(uuid) + 'peers'
+	url = getlndip(uuid) + 'peers'
 
 	try:
 		r = requests.get(url)
@@ -207,17 +207,39 @@ def listpeers(uuid):
 
 	return jsonify(r.json())
 
+
+# examples http://127.0.0.1/lnd/v1/addpeer?uuid=123&pubkey=abc&host=ip:port
+@app.route(lnd_base_url + 'addpeer', methods=['GET'])
+def addpeer():
+
+	uuid = request.args.get('uuid')
+	pubkey = request.args.get('pubkey')
+	host = request.args.get('host')
+
+	if(not uuid or not pubkey or not host):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node addpeer'})
+
+	connect_url = getlndip(uuid) + 'connect?pubkey=' + pubkey + '&host=' + host
+
+	try:
+		r = requests.get(connect_url)
+		r.raise_for_status()
+	except requests.exceptions.RequestException as err:
+		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node connect'})
+
+	return jsonify(r.json())
+
 #example: https://127.0.0.1/closechannel?uuid=123&pubkey=abc
 @app.route(lnd_base_url + 'deletepeer', methods=['GET'])
 def deletepeer():
 
-	uuid = requests.args.get('uuid')
-	pubkey = requests.args.get('pubkey') 
+	uuid = request.args.get('uuid')
+	pubkey = request.args.get('pubkey') 
 
 	if(not uuid or not pubkey):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node deletepeer'})
 
-	url = getlnd(uuid) + 'deletepeer?pubkey=' + pubkey
+	url = getlndip(uuid) + 'deletepeer?pubkey=' + pubkey
 
 	try:
 		r = requests.get(url)
@@ -377,38 +399,6 @@ def getlndip(uuid):
 	lnd_ip = 'http://' + instance_ref.public_dns_name + ':5000/'
 
 	return lnd_ip	
-
-@app.route('/test', methods=['GET'])
-def testlnd():
-	
-	client = boto3.client('ec2')
-
-	ec2_filters = [{
-		'Name': 'tag:Name',
-		'Values': ['lnd-test']
-	}]
-
-	reservations = client.describe_instances(Filters=ec2_filters)
-	instance = reservations['Reservations'][0]['Instances'][0]
-	instance_id = instance['InstanceId']
-	
-	instance_ref = boto3.resource('ec2').Instance(instance_id)
-
-	instance_ref.start()
-	instance_ref.wait_until_running()
-
-	url = 'http://' + instance_ref.public_dns_name + ':5000/create'
-
-	r = requests.get(url)
-
-	
-	doc_ref = db.collection(u'lnd').document('lnd-test1')
-	doc_ref.set({
-		u'wallet': r.json()
-		})
-	
-	return str(r.json())
-
 
 if __name__ == '__main__':
 	app.run(port='5001')
