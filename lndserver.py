@@ -8,9 +8,6 @@ import time
 
 base_url = 'https://localhost:8001/v1/'
 cert_path = os.path.expanduser('~/.lnd/tls.cert')
-macaroon_path = os.path.expanduser('~/.lnd/data/chain/bitcoin/simnet/admin.macaroon')
-macaroon = codecs.encode(open(macaroon_path,'rb').read(), 'hex')
-headers = {'Grpc-Metadata-macaroon': macaroon}	
 
 app = Flask(__name__)
 
@@ -24,7 +21,7 @@ def getinfo():
 	getinfo_url = base_url + 'getinfo'
 
 	try:
-		r = requests.get(getinfo_url, headers=headers, verify=cert_path)
+		r = requests.get(getinfo_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node getinfo'})
@@ -37,7 +34,7 @@ def walletbalance():
 	wbalance_url = base_url + 'balance/blockchain'
 	
 	try:
-		r = requests.get(wbalance_url, headers=headers, verify=cert_path)
+		r = requests.get(wbalance_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node walletbalance'})
@@ -50,7 +47,7 @@ def channelbalance():
 	cbalance_url = base_url + 'balance/channels'
 	
 	try:
-		r = requests.get(cbalance_url, headers=headers, verify=cert_path)
+		r = requests.get(cbalance_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node channelbalance'})
@@ -63,7 +60,7 @@ def peers():
 	peers_url = base_url + 'peers'
 
 	try:
-		r = requests.get(peers_url, headers=headers, verify=cert_path)
+		r = requests.get(peers_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node peers'})
@@ -83,7 +80,7 @@ def deletepeer():
 	peers_url = base_url + 'peers/' + pubkey
 
 	try:
-		r = requests.delete(peers_url, headers=headers, verify=cert_path)
+		r = requests.delete(peers_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node deletepeer'})
@@ -112,7 +109,7 @@ def connect():
 
 	# 500 error gets thrown if peer already exists which create problems for master node
 	# small risk here of network error since we are on same host
-	r = requests.post(connect_url, headers=headers, verify=cert_path, data=json.dumps(data))
+	r = requests.post(connect_url, headers=getMacaroon(), verify=cert_path, data=json.dumps(data))
 
 	'''
 	try:
@@ -122,7 +119,7 @@ def connect():
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node connect'})
 
 	'''
-	
+
 	return jsonify(r.json())
 
 #example: https://127.0.0.1/channel?pubkey=abc&amt=800000&pushamt=200000
@@ -154,7 +151,7 @@ def openchannel():
 	generateBlocks(1)
 
 	try:
-		r = requests.post(channel_url, headers=headers, verify=cert_path, data=json.dumps(data))
+		r = requests.post(channel_url, headers=getMacaroon(), verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node openchannel'})	
@@ -181,7 +178,7 @@ def closechannel():
 		d_channel_url = channel_url + '/' + cp[0] + '/' + cp[1]
 
 		try:
-			r = requests.delete(d_channel_url, headers=headers, verify=cert_path, stream=True)
+			r = requests.delete(d_channel_url, headers=getMacaroon(), verify=cert_path, stream=True)
 			r.raise_for_status()
 		except requests.exceptions.RequestException as err:
 			return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node closechannel'})	
@@ -227,7 +224,7 @@ def listchannels():
 	channel_url = base_url + 'channels'
 
 	try:
-		r = requests.get(channel_url, headers=headers, verify=cert_path)
+		r = requests.get(channel_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node listchannels'})	
@@ -257,7 +254,7 @@ def invoice():
 		}
 
 	try:
-		r = requests.post(invoice_url, headers=headers, verify=cert_path, data=json.dumps(data))
+		r = requests.post(invoice_url, headers=getMacaroon(), verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node invoice'})	
@@ -270,7 +267,7 @@ def decodepayreq(pay_req):
 	decode_url = base_url + 'payreq/' + pay_req
 
 	try:
-		r = requests.get(decode_url, headers=headers, verify=cert_path)
+		r = requests.get(decode_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node decodepayreq'})
@@ -294,7 +291,7 @@ def sendPayment():
 	}
 
 	try:
-		r = requests.post(tx_url, headers=headers, verify=cert_path, data=json.dumps(data))
+		r = requests.post(tx_url, headers=getMacaroon(), verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'lnd node sendpayment'})
@@ -330,11 +327,11 @@ def create():
 	return jsonify(ret_dict)
 
 
+#Helper Functions
 def generateBlocks(num):
 	cmd = '/home/ec2-user/gocode/bin/btcctl --simnet --rpcuser=kek --rpcpass=kek --rpccert=/home/ec2-user/.lnd/rpc.cert --rpcserver=10.0.0.229:18556 generate ' + str(num)
 	os.system(cmd)
 
-#Helper Functions
 def initLnd():
 	
 	#deprecated - now using systemd to spin up lnd
@@ -352,7 +349,8 @@ def initWallet():
 	wallet_url = base_url + 'initwallet'
 	pw = generate_pw()
 	seed = generate_seed()
-	if("error in seed"):
+	
+	if("error" in seed):
 		return seed
 	seed = seed["seed"]
 
@@ -367,6 +365,9 @@ def initWallet():
 	except requests.exceptions.RequestException as err:
 		return {'code': 4, 'error': str(err), 'res': 'lnd node initwallet'}
 
+	#generate wallet
+	time.sleep(5)
+
 	return {"pw":pw, "seed":seed}
 
 def initAddress():
@@ -375,7 +376,7 @@ def initAddress():
 	address_url = base_url + 'newaddress'
 
 	try:
-		r = requests.get(address_url, headers=headers, verify=cert_path)
+		r = requests.get(address_url, headers=getMacaroon(), verify=cert_path)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return {'code': 4, 'error': str(err), 'res': 'lnd node initaddress'}
@@ -411,6 +412,12 @@ def generate_seed():
 		return {'seed': r.json()['cipher_seed_mnemonic']}
 	else:
 		return {'code': 3, 'error': 'could not generate address', 'res': 'lnd node initaddress'}
+
+def getMacaroon():
+	macaroon_path = os.path.expanduser('~/.lnd/data/chain/bitcoin/simnet/admin.macaroon')
+	macaroon = codecs.encode(open(macaroon_path,'rb').read(), 'hex')
+	headers = {'Grpc-Metadata-macaroon': macaroon}	
+	return headers
 
 if __name__ == '__main__':
 	app.run(port='5002')

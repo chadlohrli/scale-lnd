@@ -15,7 +15,7 @@ app = Flask(__name__)
 cred = credentials.Certificate("./firebase_auth.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-aws_template_id = 'lt-0e8c7bf29b5bcc011' #lnd-create template
+aws_template_id = 'lt-099f669346f789bc2' #lnd-create template
 lnd_base_url = '/lnd/v1/'
 
 @app.route('/test')
