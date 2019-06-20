@@ -67,7 +67,7 @@ def create(uuid):
 	instance_time = end - start
 
 	#2) create wallet on lnd server
-	time.sleep(60)
+	time.sleep(20)
 	lnd_server = 'http://' + instance_ref.public_dns_name + ':5000/create'
 
 	try:
@@ -122,10 +122,29 @@ def create(uuid):
 
 	return jsonify({'code': 5, 'success': True, 'res': 'master lnd node create (finalize init)'})
 
+'''
+@app.route(lnd_base_url + 'unlock/<uuid>', methods=['GET'])
+def unlock(uuid):
+
+	node_id = 'lnd-' + str(uuid);
+	doc_ref = db.collection(u'lnd').document(node_id)
+	doc = doc_ref.get()
+	if(not doc.to_dict()):
+		return jsonify({'code': 3, 'error': 'user does not exist', 'res': 'master lnd node unlock'})
+
+	password = str(doc.to_dict()['wallet']['password'])
+
+	return password
+'''
+
 @app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
 def getinfo(uuid):
 
-	url = getlndip(uuid) + 'getinfo'
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+	
+	url = url + 'getinfo'
 
 	try:
 		r = requests.get(url)
@@ -138,7 +157,11 @@ def getinfo(uuid):
 @app.route(lnd_base_url + 'walletbalance/<uuid>', methods=['GET'])
 def walletbalance(uuid):
 	
-	url = getlndip(uuid) + 'walletbalance'
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'walletbalance'
 
 	try:
 		r = requests.get(url)
@@ -151,7 +174,11 @@ def walletbalance(uuid):
 @app.route(lnd_base_url + 'channelbalance/<uuid>', methods=['GET'])
 def channelbalance(uuid):
 	
-	url = getlndip(uuid) + 'channelbalance'
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+	
+	url = url + 'channelbalance'
 
 	try:
 		r = requests.get(url)
@@ -164,7 +191,11 @@ def channelbalance(uuid):
 @app.route(lnd_base_url + 'listchannels/<uuid>', methods=['GET'])
 def listchannels(uuid):
 
-	url = getlndip(uuid) + 'listchannels'
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'listchannels'
 
 	try:
 		r = requests.get(url)
@@ -184,7 +215,11 @@ def closechannel():
 	if(not uuid or not pubkey):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node closechannel'})
 
-	url = getlndip(uuid) + 'closechannel?pubkey=' + pubkey
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+		
+	url = url + 'closechannel?pubkey=' + pubkey
 
 	try:
 		r = requests.get(url)
@@ -197,7 +232,11 @@ def closechannel():
 @app.route(lnd_base_url + 'listpeers/<uuid>', methods=['GET'])
 def listpeers(uuid):
 
-	url = getlndip(uuid) + 'peers'
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'peers'
 
 	try:
 		r = requests.get(url)
@@ -219,10 +258,14 @@ def addpeer():
 	if(not uuid or not pubkey or not host):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node addpeer'})
 
-	connect_url = getlndip(uuid) + 'connect?pubkey=' + pubkey + '&host=' + host
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'connect?pubkey=' + pubkey + '&host=' + host
 
 	try:
-		r = requests.get(connect_url)
+		r = requests.get(url)
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node connect'})
@@ -239,7 +282,11 @@ def deletepeer():
 	if(not uuid or not pubkey):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node deletepeer'})
 
-	url = getlndip(uuid) + 'deletepeer?pubkey=' + pubkey
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'deletepeer?pubkey=' + pubkey
 
 	try:
 		r = requests.get(url)
@@ -261,7 +308,11 @@ def invoice():
 	if(not uuid or not amt):
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node invoice'})
 
-	url = getlndip(uuid) + 'invoice?amt=' + amt
+	url = getlndip(uuid)
+	if('error' in url):
+		return jsonify(url)
+
+	url = url + 'invoice?amt=' + amt
 
 	if(memo):
 		url = url + '&memo=' + memo
@@ -288,6 +339,8 @@ def pay():
 		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'master lnd node pay'})
 
 	base_url = getlndip(uuid) 
+	if('error' in base_url):
+		return jsonify(base_url)
 
 	#first we need to check funds
 	wallet_balance = walletbalance(uuid).get_json() #note this returns a response
@@ -382,7 +435,6 @@ def pay():
 
 	return(jsonify(r.json()))
 
-
 #@app.route(lnd_base_url + 'genblocks/<num>', methods=['GET'])
 def generateBlocks(num):
 	cmd = '/home/ec2-user/gocode/bin/btcctl --simnet --rpcuser=kek --rpcpass=kek generate ' + str(num)
@@ -393,6 +445,9 @@ def getlndip(uuid):
 	node_id = 'lnd-' + str(uuid);
 	doc_ref = db.collection(u'lnd').document(node_id)
 	doc = doc_ref.get()
+	if(not doc.to_dict()):
+		return {'code': 3, 'error': 'user does not exist', 'res': 'master lnd node getip'}
+
 	instance_id = str(doc.to_dict()['instance']['id'])
 	instance_ref = boto3.resource('ec2').Instance(instance_id)
 
