@@ -11,9 +11,9 @@ cert_path = os.path.expanduser('~/.lnd/tls.cert')
 
 app = Flask(__name__)
 
-@app.route('/test')
-def test():
-	return "hello world"
+@app.route('/ping')
+def ping():
+	return "pong"
 
 @app.route('/getinfo', methods=['GET','POST'])
 def getinfo():

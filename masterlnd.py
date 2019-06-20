@@ -18,9 +18,53 @@ db = firestore.client()
 aws_template_id = 'lt-099f669346f789bc2' #lnd-create template
 lnd_base_url = '/lnd/v1/'
 
-@app.route('/test')
-def test():
-	return "hello world"
+
+#github webhook update
+@app.route('/update', methods= ['GET', 'POST'])
+def update():
+
+	if request.method == 'GET':
+		return jsonify({'code': 5, 'success': True, 'res': 'master lnd node update'})
+	elif request.method == 'POST':
+
+		if request.headers.get('X-GitHub-Event') == 'push' or request.headers.get('X-GitHub-Event') == 'pull_request':
+
+			nodes = {}
+			doc_ref = db.collection(u'lnd')
+			docs = doc_ref.get()
+			for doc in docs:
+				print("updating:{}".format(doc.id))
+				data = doc.to_dict()
+				instance_id = data['instance']['id']
+				instance_ref = boto3.resource('ec2').Instance(instance_id)
+				ip = 'http://' + instance_ref.public_dns_name 
+				git_ip = ip + ':5001/update'
+
+				try:
+					r = requests.get(git_ip)
+					r.raise_for_status()
+				except requests.exceptions.RequestException as err:
+					return jsonify({'code': 4, 'error': str(err), 'res': 'master lnd node update'})
+
+				time.sleep(1)
+
+				#test
+				ping_ip = ip + ':5000/ping'
+				try:
+					r = requests.get(ping_ip)
+					r.raise_for_status()
+				except requests.exceptions.RequestException as err:
+					nodes[doc.id] = 'failed'
+
+				nodes[doc.id] = 'pass'
+
+			return jsonify({'code': 5, 'nodes': nodes, 'res': 'master lnd node update'})
+
+	return jsonify({'code': 3, 'error': 'Incorrect REST method!', 'res': 'master lnd node update'})
+
+@app.route('/ping')
+def ping():
+	return "pong"
 
 #create new lnd node
 @app.route(lnd_base_url + 'create/<uuid>', methods=['GET'])
