@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to serve masterlnd server
+After=network.target
+After=lnd.service
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/scale-lnd/
+ExecStart=/usr/bin/uwsgi --ini masterlnd.ini
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
