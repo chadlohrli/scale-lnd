@@ -1,0 +1,11 @@
+[Unit]
+Description=lnd
+After=network.target
+
+[Service]
+User=ec2-user
+ExecStart=/home/ec2-user/gocode/bin/lnd 
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

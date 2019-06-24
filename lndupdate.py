@@ -12,9 +12,11 @@ app = Flask(__name__)
 @app.route('/update', methods=['GET', 'POST'])
 def update():
 	
-	os.system('cd ../ && rm lndserver.py')
-	os.system('cp lndserver.py ../')
-	os.system('sudo systemctl restart lndserver')
+#	os.system('cd ../ && rm lndserver.py')
+#	os.system('cp lndserver.py ../')
+#	os.system('sudo systemctl restart lndserver')
+
+	os.system('sudo systemctl restart wsgi_lndserver')
 	
 	return "ok"
 

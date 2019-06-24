@@ -1,0 +1,13 @@
+[Unit]
+Description=uWSGI instance to serve lndserver updates
+After=network.target
+After=lnd.service
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/scale-lnd/
+ExecStart=/usr/bin/uwsgi --ini lndserver.ini
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

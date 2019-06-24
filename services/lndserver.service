@@ -1,0 +1,14 @@
+[Unit]
+Description=lnd proxy server
+After=network.target 
+After=lnd.service
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user/
+Environment=FLASK_APP=lndserver.py
+ExecStart=/usr/bin/flask run --host=0.0.0.0
+Restart=always
+ 
+[Install] 
+WantedBy=multi-user.target
