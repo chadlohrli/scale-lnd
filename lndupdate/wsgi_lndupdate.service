@@ -5,7 +5,7 @@ After=lnd.service
 
 [Service]
 User=ec2-user
-WorkingDirectory=/home/ec2-user/scale-lnd/
+WorkingDirectory=/home/ec2-user/scale-lnd/lndupdate/
 ExecStart=/usr/bin/uwsgi --ini lndupdate.ini
 Restart=always
 
