@@ -15,7 +15,7 @@ app = Flask(__name__)
 cred = credentials.Certificate("./firebase_auth.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-aws_template_id = 'lt-099f669346f789bc2' #lnd-create template
+aws_template_id = 'lt-03ff731474b331e8b'  #lnd-full-node-3 template
 lnd_base_url = '/lnd/v1/'
 
 
@@ -159,7 +159,8 @@ def create(uuid):
 
 	#4) send intial coins
 	address = wallet['address']
-	lncmd = '/home/ec2-user/gocode/bin/lncli --rpcserver=localhost:10001 --macaroonpath=data/chain/bitcoin/simnet/admin.macaroon'
+	walletpath = '/home/ec2-user/gocode/dev/simnet/chad/'
+	lncmd = '/home/ec2-user/gocode/bin/lncli --rpcserver=localhost:10001 --macaroonpath=' + walletpath + 'data/chain/bitcoin/simnet/admin.macaroon'
 	snd = ' sendcoins --addr=' + address + ' ' + '--amt=100000000'
 	cmd = lncmd + snd
 	os.system(cmd)
