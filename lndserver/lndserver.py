@@ -360,7 +360,7 @@ def initWallet():
 	}
 
 	try:
-		r = requests.post(url, verify=cert_path, data=json.dumps(data))
+		r = requests.post(wallet_url, verify=cert_path, data=json.dumps(data))
 		r.raise_for_status()
 	except requests.exceptions.RequestException as err:
 		return {'code': 4, 'error': str(err), 'res': 'lnd node initwallet'}
