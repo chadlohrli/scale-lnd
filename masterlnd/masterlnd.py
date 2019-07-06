@@ -15,7 +15,7 @@ app = Flask(__name__)
 cred = credentials.Certificate("./firebase_auth.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
-aws_template_id = 'lt-03ff731474b331e8b'  #lnd-full-node-3 template
+aws_template_id = 'lt-05946977129c4f6ba'  #lnd-full-node-4 template
 lnd_base_url = '/lnd/v1/'
 
 
@@ -67,8 +67,13 @@ def ping():
 	return "pong"
 
 #create new lnd node
-@app.route(lnd_base_url + 'create/<uuid>', methods=['GET'])
-def create(uuid):
+#example: https://127.0.0.1/create?uuid=123
+@app.route(lnd_base_url + 'create', methods=['GET'])
+def create():
+	
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node create'})	
 
 	#instantiante aws client
 	client = boto3.client('ec2')
@@ -182,8 +187,13 @@ def unlock(uuid):
 	return password
 '''
 
-@app.route(lnd_base_url + 'getinfo/<uuid>', methods=['GET'])
-def getinfo(uuid):
+#example: http://127.0.0.1/getinfo?uuid=123
+@app.route(lnd_base_url + 'getinfo', methods=['GET'])
+def getinfo():
+
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node getinfo'})
 
 	url = getlndip(uuid)
 	if('error' in url):
@@ -199,9 +209,14 @@ def getinfo(uuid):
 	
 	return jsonify(r.json())
 
-@app.route(lnd_base_url + 'walletbalance/<uuid>', methods=['GET'])
-def walletbalance(uuid):
-	
+#example: http://127.0.0.1/walletbalance?uuid=123
+@app.route(lnd_base_url + 'walletbalance', methods=['GET'])
+def walletbalance():
+
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node walletbalance'})
+
 	url = getlndip(uuid)
 	if('error' in url):
 		return jsonify(url)
@@ -216,9 +231,14 @@ def walletbalance(uuid):
 
 	return jsonify(r.json())
 
-@app.route(lnd_base_url + 'channelbalance/<uuid>', methods=['GET'])
-def channelbalance(uuid):
+#example: http://127.0.0.1/channelbalance?uuid=123
+@app.route(lnd_base_url + 'channelbalance', methods=['GET'])
+def channelbalance():
 	
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node channelbalance'})
+
 	url = getlndip(uuid)
 	if('error' in url):
 		return jsonify(url)
@@ -233,8 +253,13 @@ def channelbalance(uuid):
 	
 	return jsonify(r.json())
 
-@app.route(lnd_base_url + 'listchannels/<uuid>', methods=['GET'])
-def listchannels(uuid):
+#example: http://127.0.0.1/listchannels?uuid=123
+@app.route(lnd_base_url + 'listchannels', methods=['GET'])
+def listchannels():
+
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node listchannels'})
 
 	url = getlndip(uuid)
 	if('error' in url):
@@ -274,8 +299,13 @@ def closechannel():
 
 	return jsonify(r.json())
 
-@app.route(lnd_base_url + 'listpeers/<uuid>', methods=['GET'])
-def listpeers(uuid):
+#example: http://127.0.0.1/listpeers?uuid=123
+@app.route(lnd_base_url + 'listpeers', methods=['GET'])
+def listpeers():
+
+	uuid = request.args.get('uuid')
+	if(not uuid):
+		return jsonify({'code': 3, 'error': 'invalid request format', 'res': 'lnd node listpeers'})
 
 	url = getlndip(uuid)
 	if('error' in url):
