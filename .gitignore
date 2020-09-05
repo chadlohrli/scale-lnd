@@ -2,3 +2,6 @@ data/
 log/
 *.pyc
 *.sock
+
+# Firebase
+firebase_auth.json
